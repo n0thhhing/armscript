@@ -18,6 +18,7 @@ export declare class Memory {
     private numDeallocations;
     private peakMemoryUsage;
     private freeList;
+    private allocatedList;
     constructor(size: number);
     private align;
     malloc(size: number): MemoryPointer | null;
@@ -32,6 +33,7 @@ export declare class Memory {
     private setValueUnsafe;
     readUnsafe(offset: number, type: string): number | bigint;
     writeUnsafe(offset: number, value: any, type: string): void;
+    sizeof(typeOrOffset: any): number;
     private updatePeakMemoryUsage;
     get totalUsed(): number;
     get fragmentationLevel(): number;

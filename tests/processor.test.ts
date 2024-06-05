@@ -1,7 +1,7 @@
-import { expect, test } from "bun:test";
+import { expect, test } from 'bun:test';
 
-import { Processor } from "../src/processor"
+import { Processor } from '../src/processor';
 
-test.todo("Processor", () => {
-    const processor = new Processor()
-})
+test.todo('Processor', () => {
+    const processor = new Processor();
+});

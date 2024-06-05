@@ -1,4 +1,4 @@
-const assert = require('assert');
+import assert from 'assert';
 
 export class Memory {
     public HEAP: Buffer;
@@ -19,6 +19,7 @@ export class Memory {
     private numDeallocations: number;
     private peakMemoryUsage: number;
     private freeList: { offset: number; size: number }[];
+    private allocatedList: { offset: number; size: number }[];
 
     constructor(public readonly size: number) {
         this.HEAP = Buffer.alloc(size);
@@ -38,6 +39,7 @@ export class Memory {
         this.numAllocations = 0;
         this.numDeallocations = 0;
         this.peakMemoryUsage = 0;
+        this.allocatedList = [];
         this.freeList = [{ offset: 0, size: size }];
     }
 
@@ -59,6 +61,7 @@ export class Memory {
                 this.totalAllocated += size;
                 this.numAllocations++;
                 this.updatePeakMemoryUsage();
+                this.allocatedList.push({ offset, size });
                 return new MemoryPointer(this, offset, size);
             }
         }
@@ -83,6 +86,12 @@ export class Memory {
         this.totalFreed += size;
         this.numDeallocations++;
         this.updatePeakMemoryUsage();
+        const index = this.allocatedList.findIndex(
+            (block) => block.offset === offset && block.size === size,
+        );
+        if (index !== -1) {
+            this.allocatedList.splice(index, 1);
+        }
     }
 
     private coalesce(): void {
@@ -188,21 +197,17 @@ export class Memory {
             case 'f64':
             case 'float64':
                 return this.getValueUnsafe(offset, this.HEAPF64, 3);
-                break
+                break;
             case 'ptr':
             case 'pointer':
                 return this.getValueUnsafe(offset, this.HEAPU32, 2);
-                break
+                break;
             default:
                 throw new Error('Invalid type:' + type);
         }
     }
 
-    public writeUnsafe(
-        offset: number,
-        value: any,
-        type: string,
-    ): void {
+    public writeUnsafe(offset: number, value: any, type: string): void {
         switch (type) {
             case 'i8':
             case 'int8':
@@ -246,12 +251,65 @@ export class Memory {
                 break;
             case 'ptr':
             case 'pointer':
-                if (value instanceof MemoryPointer)
-                    value = value.offset
+                if (value instanceof MemoryPointer) value = value.offset;
                 this.setValueUnsafe(offset, value, this.HEAPU32, 2);
-                break
+                break;
             default:
                 throw new Error('Invalid type:' + type);
+        }
+    }
+
+    public sizeof(typeOrOffset: any): number {
+        if (typeof typeOrOffset === 'string') {
+            // Get size of a type
+            switch (typeOrOffset) {
+                case 'i8':
+                case 'int8':
+                case 'u8':
+                case 'uint8':
+                    return 1;
+                case 'i16':
+                case 'int16':
+                case 'u16':
+                case 'uint16':
+                    return 2;
+                case 'i32':
+                case 'int32':
+                case 'u32':
+                case 'uint32':
+                case 'f32':
+                case 'float32':
+                    return 4;
+                case 'i64':
+                case 'int64':
+                case 'u64':
+                case 'uint64':
+                case 'f64':
+                case 'float64':
+                    return 8;
+                case 'ptr':
+                case 'pointer':
+                    return 4;
+                default:
+                    throw new Error('Invalid type: ' + typeOrOffset);
+            }
+        } else if (
+            typeof typeOrOffset === 'number' ||
+            typeOrOffset instanceof MemoryPointer
+        ) {
+            if (typeOrOffset instanceof MemoryPointer)
+                typeOrOffset = typeOrOffset.offset;
+            for (const block of this.allocatedList) {
+                if (
+                    typeOrOffset >= block.offset &&
+                    typeOrOffset < block.offset + block.size
+                ) {
+                    return block.size - (typeOrOffset - block.offset);
+                }
+            }
+            throw new Error('Offset is not within allocated memory');
+        } else {
+            throw new Error('Invalid argument type');
         }
     }
 

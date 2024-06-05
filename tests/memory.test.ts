@@ -89,6 +89,19 @@ test('Free Prototype', () => {
     }
 });
 
+describe('Sizeof', () => {
+    test('Pointer', () => {
+        const memory = new Memory(1024);
+        const pointer = memory.malloc(64);
+        expect(pointer).not.toBeNull();
+        expect(memory.sizeof(pointer.offset)).toBe(64);
+    });
+    test('Type', () => {
+        const memory = new Memory(1024);
+        expect(memory.sizeof('int64')).toBe(8);
+    });
+});
+
 describe('Read and Write', () => {
     test('Int8', () => {
         const memory = new Memory(1024);
@@ -189,16 +202,29 @@ describe('Read and Write', () => {
             expect(pointer.read(0, 'float64')).toBeCloseTo(6.28);
         }
     });
-    
+
+    test('Pointer', () => {
+        const memory = new Memory(1024);
+        const pointerRef = memory.malloc(20);
+        expect(pointerRef).not.toBeNull();
+        pointerRef.write(0, 255, 'uint8');
+        expect(pointerRef.read(0, 'uint8')).toBe(255);
+        const pointer = memory.malloc(4);
+        expect(pointer).not.toBeNull();
+        pointer.write(0, pointerRef, 'ptr');
+        const originalPointer = pointer.read(0, 'ptr');
+        expect(memory.readUnsafe(originalPointer, 'uint8')).toBe(255);
+    });
+
     // Checking if the freed memory is not fragmented into two parts,
     // which will prevent larger sizes from being allocated
-    test("Coalesce", () => {
+    test('Coalesce', () => {
         const memory = new Memory(64);
         const lowerHalf = memory.malloc(32);
         const upperHalf = memory.malloc(32);
-        lowerHalf.free()
-        upperHalf.free()
-        const pointer = memory.malloc(64)
+        lowerHalf.free();
+        upperHalf.free();
+        const pointer = memory.malloc(64);
         expect(pointer).not.toBeNull();
         if (pointer) {
             pointer.write(0, BigInt(1000000000000), 'uint64');
